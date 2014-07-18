@@ -1,0 +1,99 @@
+#! /usr/bin/perl
+
+#######################################################
+# CFIA de novo microbial genome assembly pipeline
+#
+# Authored by Adam Koziol and Michael Knowles
+#
+# NOTE: As of now, this script will need certain programs installed in order to run properly
+#	1) Velvet and velvet optimizer. Velvet will have to be compiled manually in order to enable multithreading and kmer sizes up to 115
+#	2) prokka and all of its dependencies
+#	3) ffp
+#	4) abacas
+#	5) BLAST
+#	6) Trimmomatic
+#
+# We're also assuming that you're running this in a Linux environment. If not, then we have no idea if it will work.
+
+####################################################### 
+
+# Much of this code is influenced by Torsten Seemann's prokka 1.5.2
+# Also, thanks are given to Nick Petronella at Health Canada for code examples and guidance
+
+use Cwd;
+use warnings;
+use strict;
+use File::Copy;
+use Time::Piece;
+use Time::Seconds;
+use Time::HiRes qw/ time sleep /;
+
+# This start time will be used in calculating the total time of the run
+my $start_time = time;
+
+# This script assumes that the raw sequence files are Illumina outputted paired end, .fastq, and still zipped. Additional functionality to include different naming conventions and formats may eventually be included
+running_time("Welcome to the CFIA microbial genome assembly pipeline");
+
+# Determine the number of processors present
+CPUs();
+
+# Runs the folderer subroutine to extract the .fastq files and place them in appropriate directories
+# Checks to see if there are .gz archives present in the current directory
+my $folderer_check = glob "*.gz";
+
+# If there are .gz archives, the folderer subroutine is called
+if ($folderer_check){
+	running_time("Your paired-end .fastq files will now be extracted.");
+	folderer();
+}
+
+
+
+my $end_time = time;
+my $total_time = 1000 * ($end_time - $start_time);
+my $milliseconds = sprintf("%.0f", $total_time);
+print "The total run time was $milliseconds milliseconds\n";
+
+
+##########################################################
+# This subroutine allows the printing of the local time each time it is invoked - it allows for the user to see how much time has passed
+sub running_time 
+{
+my $time =  localtime;
+my $hms = "[" . $time->hms . "] @_\n";
+print $hms;
+}
+
+##########################################################
+# This subroutine counts the number of CPUs present
+sub CPUs
+{
+	system("awk '/^processor/ { N++} END { print N }' /proc/cpuinfo > cpus.temp");
+	open(INPUT, "<", "cpus.temp");
+	my @cpus = <INPUT>;
+	chomp @cpus;
+	unlink "cpus.temp";
+	running_time("There are @cpus CPUs in your system");
+}
+
+###########################################################
+# This subroutine extracts .fastq files, places the decompressed files in folders, and deletes the .gz archives
+sub folderer
+{
+my @files = glob("*.gz");
+foreach my $file (@files){
+	(my $folder = $file) =~ s/_.*//g;
+	(my $unzip = $file) =~ s/.gz//g;
+	(my $filename = $file) =~ s/S.+_L001_|.gz//g;
+	running_time("Now extracting $filename");
+	mkdir $folder;
+	move($file,"$folder/$file");
+	system("gzip -d $folder/$file");
+	if (-f $unzip){unlink "$folder/$file"};
+	move("$folder/$unzip","$folder/$filename"); 
+	}
+}
+
+############################################################
+
+exit; 
