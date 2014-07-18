@@ -43,7 +43,7 @@ running_time("There are @cpus CPUs in your system.");
 # Checks to see if there are .gz archives present in the current directory
 my $folderer_check = glob "*.gz";
 
-# If there are .gz archives, the folderer subroutine is called
+# If there are .gz archives, the folderer subroutine is calledc
 if ($folderer_check){
 	running_time("Your paired-end .fastq files will now be extracted.");
 	folderer();
@@ -436,8 +436,10 @@ sub assembly_report
 	my $path = getcwd;
 	my $count = 0;
 
+	# Get the name of the current folder for QA naming
+	(my $currentDir = $path) =~ s/.+WGS\///g;
 	# Open the assembly report spreadsheet and write the headings
-	open (OUTPUT, ">Assembly_report.csv");
+	open(OUTPUT, ">", "Assembly_report_" . $currentDir . ".csv");
 	print OUTPUT "Strain\tTrim\tNumber of Contigs\tLongest Contig\tN50\tTotal Bases\n";
 
 	# Because I want to compare the assembly scores for trim levels of the same strain, the original loop is the strains
@@ -531,8 +533,13 @@ sub assembly_report
 		print "\t   $best_trim[$count] $folders[$count] with $number_of_contigs[$count] contigs, an N50 of $n50[$count], and an assembly size of $total_bases[$count] bases\n";
 		$count++;
 	}
+	# Add QA tracing information
+	chdir($path);
+	my $commitString = "68663b4205327fbddca9b455112e49c4175f0efd";
+	my $date = localtime->strftime('%Y/%m/%d');
+	(my $currentDir = $path) =~ s/.+WGS\///g;
+	print OUTPUT "Assembly of $currentDir was processed by the VelvetOptimizer Pipeline commit $commitString on $date";
 	close OUTPUT;
-	chdir ("$path");
 }
 
 ##########################################################
